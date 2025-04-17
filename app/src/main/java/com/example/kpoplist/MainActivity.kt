@@ -1,5 +1,6 @@
 package com.example.kpoplist
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -22,6 +23,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.material3.TextField
+import androidx.compose.runtime.mutableStateOf
 
 
 // Define the KpopArtist Data Class
@@ -47,10 +51,14 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+
+@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
 fun KpopApp() {
     val artists = remember { mutableStateListOf<KpopArtist>() }
     val context = LocalContext.current  // ✅ This gets the context properly
+    val searchQuery = remember { mutableStateOf("") }
+    val groupFilter = remember { mutableStateOf("") }
 
     // Load data when the screen is created
     LaunchedEffect(Unit) {
@@ -58,23 +66,42 @@ fun KpopApp() {
         artists.addAll(data)
     }
 
+    // Filter the artists based on search query and group filter
+    val filteredArtists = artists.filter { artist ->
+        val matchesSearch = artist.stageName.contains(searchQuery.value, ignoreCase = true) ||
+                artist.group.contains(searchQuery.value, ignoreCase = true)
+        val matchesGroup = groupFilter.value.isEmpty() || artist.group.contains(groupFilter.value, ignoreCase = true)
+        matchesSearch && matchesGroup
+    }
+
     Scaffold(
         content = {
-            KpopArtistList(artists = artists)
+            Column(modifier = Modifier.padding(16.dp)) {
+                // Search bar
+                TextField(
+                    value = searchQuery.value,
+                    onValueChange = { searchQuery.value = it },
+                    label = { Text("Search by Stage Name or Group") },
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+
+                // Filter by Group
+                TextField(
+                    value = groupFilter.value,
+                    onValueChange = { groupFilter.value = it },
+                    label = { Text("Filter by Group") },
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+
+                // List the filtered artists
+                LazyColumn {
+                    items(filteredArtists) { artist ->
+                        KpopArtistItem(artist = artist)
+                    }
+                }
+            }
         }
     )
-}
-
-
-@Composable
-fun KpopArtistList(artists: List<KpopArtist>) {
-    LazyColumn(
-        modifier = Modifier.padding(16.dp)
-    ) {
-        items(artists) { artist ->
-            KpopArtistItem(artist = artist)
-        }
-    }
 }
 
 @Composable
@@ -82,9 +109,16 @@ fun KpopArtistItem(artist: KpopArtist) {
     Column(
         modifier = Modifier
             .padding(8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally // 👈 center the column's content
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("Stage Name: ${artist.stageName}", textAlign = TextAlign.Center)
+        // Bold stage name
+        Text(
+            "Stage Name: ${artist.stageName}",
+            textAlign = TextAlign.Center,
+            fontWeight = FontWeight.Bold, // Bold text
+            modifier = Modifier.padding(bottom = 4.dp) // Add space after
+        )
+        // Regular styling for other fields
         Text("Full Name: ${artist.fullName}", textAlign = TextAlign.Center)
         Text("Korean Name: ${artist.koreanName}", textAlign = TextAlign.Center)
         Text("Date of Birth: ${artist.dateOfBirth}", textAlign = TextAlign.Center)
