@@ -21,6 +21,7 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
@@ -93,10 +94,15 @@ fun KpopApp() {
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
 
-                // List the filtered artists
-                LazyColumn {
-                    items(filteredArtists) { artist ->
-                        KpopArtistItem(artist = artist)
+                // Check if the filtered list is empty and display a message if true
+                if (filteredArtists.isEmpty()) {
+                    Text("No results found", style = MaterialTheme.typography.bodyLarge)
+                } else {
+                    // List the filtered artists
+                    LazyColumn {
+                        items(filteredArtists) { artist ->
+                            KpopArtistItem(artist = artist)
+                        }
                     }
                 }
             }
