@@ -18,6 +18,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.style.TextAlign
 
 
 // Define the KpopArtist Data Class
@@ -64,9 +68,10 @@ fun KpopApp() {
 
 @Composable
 fun KpopArtistList(artists: List<KpopArtist>) {
-    // Apply padding to the Column here
-    Column(modifier = Modifier.padding(16.dp)) {
-        artists.forEach { artist ->
+    LazyColumn(
+        modifier = Modifier.padding(16.dp)
+    ) {
+        items(artists) { artist ->
             KpopArtistItem(artist = artist)
         }
     }
@@ -74,15 +79,19 @@ fun KpopArtistList(artists: List<KpopArtist>) {
 
 @Composable
 fun KpopArtistItem(artist: KpopArtist) {
-    Column(modifier = Modifier.padding(8.dp)) {
-        Text("Stage Name: ${artist.stageName}")
-        Text("Full Name: ${artist.fullName}")
-        Text("Korean Name: ${artist.koreanName}")
-        Text("Date of Birth: ${artist.dateOfBirth}")
-        Text("Country: ${artist.country}")
-        Text("Group: ${artist.group}")
-        Text("Gender: ${artist.gender}")
-        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp)) // 👈 Optional for visual separation
+    Column(
+        modifier = Modifier
+            .padding(8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally // 👈 center the column's content
+    ) {
+        Text("Stage Name: ${artist.stageName}", textAlign = TextAlign.Center)
+        Text("Full Name: ${artist.fullName}", textAlign = TextAlign.Center)
+        Text("Korean Name: ${artist.koreanName}", textAlign = TextAlign.Center)
+        Text("Date of Birth: ${artist.dateOfBirth}", textAlign = TextAlign.Center)
+        Text("Country: ${artist.country}", textAlign = TextAlign.Center)
+        Text("Group: ${artist.group}", textAlign = TextAlign.Center)
+        Text("Gender: ${artist.gender}", textAlign = TextAlign.Center)
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
     }
 }
 
