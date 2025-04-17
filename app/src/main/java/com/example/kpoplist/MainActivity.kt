@@ -146,15 +146,22 @@ fun KpopApp() {
             Spacer(modifier = Modifier.height(8.dp))
 
             // Group filter tabs
+            val selectedTabIndex = when {
+                groupFilter.value.isEmpty() -> 0 // "All" tab is selected
+                else -> groups.indexOf(groupFilter.value) + 1 // Group tab is selected, +1 to account for "All" tab
+            }
+
             ScrollableTabRow(
-                selectedTabIndex = groups.indexOf(groupFilter.value).takeIf { it >= 0 } ?: 0,
+                selectedTabIndex = selectedTabIndex,
                 edgePadding = 0.dp
             ) {
+                // "All" tab for no group filter
                 Tab(
                     selected = groupFilter.value.isEmpty(),
                     onClick = { groupFilter.value = "" },
                     text = { Text("All") }
                 )
+                // Tabs for each group
                 groups.forEach { group ->
                     Tab(
                         selected = groupFilter.value == group,
@@ -182,6 +189,11 @@ fun KpopApp() {
         }
     }
 }
+
+
+
+
+
 
 @SuppressLint("NewApi")
 @Composable
