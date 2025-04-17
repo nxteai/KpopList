@@ -1,35 +1,61 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package com.example.kpoplist
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.annotation.RequiresApi
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import java.io.BufferedReader
 import java.io.InputStreamReader
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.material3.TextField
-import androidx.compose.runtime.mutableStateOf
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
+import java.util.Locale
 
-
-// Define the KpopArtist Data Class
 data class KpopArtist(
     val stageName: String,
     val fullName: String,
@@ -43,98 +69,166 @@ data class KpopArtist(
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // Set the content for the activity
         setContent {
-            // Calling the KpopApp composable function here
             KpopApp()
         }
     }
 }
 
-
-@SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @Composable
 fun KpopApp() {
-    val artists = remember { mutableStateListOf<KpopArtist>() }
-    val context = LocalContext.current  // ✅ This gets the context properly
+    val context = LocalContext.current
+    val allArtists = remember { mutableStateListOf<KpopArtist>() }
     val searchQuery = remember { mutableStateOf("") }
     val groupFilter = remember { mutableStateOf("") }
+    val sortOption = remember { mutableStateOf("Name") }
 
-    // Load data when the screen is created
+    // Load CSV data
     LaunchedEffect(Unit) {
         val data = readCsvFile(context)
-        artists.addAll(data)
+        allArtists.addAll(data)
     }
 
-    // Filter the artists based on search query and group filter
-    val filteredArtists = artists.filter { artist ->
-        val matchesSearch = artist.stageName.contains(searchQuery.value, ignoreCase = true) ||
-                artist.group.contains(searchQuery.value, ignoreCase = true)
-        val matchesGroup = groupFilter.value.isEmpty() || artist.group.contains(groupFilter.value, ignoreCase = true)
-        matchesSearch && matchesGroup
-    }
+    // Unique groups for filter tabs
+    val groups = allArtists.map { it.group }.distinct().sorted()
+
+    // Filter and sort logic
+    val filteredArtists = allArtists.filter { artist ->
+        val matchSearch = artist.stageName.contains(searchQuery.value, true) || artist.group.contains(searchQuery.value, true)
+        val matchGroup = groupFilter.value.isEmpty() || artist.group == groupFilter.value
+        matchSearch && matchGroup
+    }.sortedWith(
+        when (sortOption.value) {
+            "Age" -> compareByDescending { parseDate(it.dateOfBirth) }
+            "Group" -> compareBy { it.group }
+            else -> compareBy { it.stageName }
+        }
+    )
 
     Scaffold(
-        content = {
-            Column(modifier = Modifier.padding(16.dp)) {
-                // Search bar
-                TextField(
-                    value = searchQuery.value,
-                    onValueChange = { searchQuery.value = it },
-                    label = { Text("Search by Stage Name or Group") },
-                    modifier = Modifier.padding(bottom = 16.dp)
+        topBar = {
+            TopAppBar(
+                title = { Text("K-pop Idol Finder", style = MaterialTheme.typography.titleLarge) },
+                colors = TopAppBarDefaults.mediumTopAppBarColors(
+                    containerColor = Color(0xFFFAE6FA)
                 )
+            )
+        },
+        containerColor = Color(0xFFFDF4FF)
+    ) { padding ->
+        Column(modifier = Modifier
+            .fillMaxSize()
+            .padding(padding)
+            .padding(16.dp)) {
 
-                // Filter by Group
-                TextField(
-                    value = groupFilter.value,
-                    onValueChange = { groupFilter.value = it },
-                    label = { Text("Filter by Group") },
-                    modifier = Modifier.padding(bottom = 16.dp)
+            // Search
+            TextField(
+                value = searchQuery.value,
+                onValueChange = { searchQuery.value = it },
+                label = { Text("Search by Stage Name or Group") },
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+            )
+
+            // Sort
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Sort by:")
+                DropdownMenuBox(
+                    options = listOf("Name", "Age", "Group"),
+                    selected = sortOption.value,
+                    onSelected = { sortOption.value = it }
                 )
+            }
 
-                // Check if the filtered list is empty and display a message if true
-                if (filteredArtists.isEmpty()) {
-                    Text("No results found", style = MaterialTheme.typography.bodyLarge)
-                } else {
-                    // List the filtered artists
-                    LazyColumn {
-                        items(filteredArtists) { artist ->
-                            KpopArtistItem(artist = artist)
-                        }
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Group filter tabs
+            ScrollableTabRow(
+                selectedTabIndex = groups.indexOf(groupFilter.value).takeIf { it >= 0 } ?: 0,
+                edgePadding = 0.dp
+            ) {
+                Tab(
+                    selected = groupFilter.value.isEmpty(),
+                    onClick = { groupFilter.value = "" },
+                    text = { Text("All") }
+                )
+                groups.forEach { group ->
+                    Tab(
+                        selected = groupFilter.value == group,
+                        onClick = { groupFilter.value = group },
+                        text = { Text(group) }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            if (filteredArtists.isEmpty()) {
+                Text(
+                    "No results found",
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center
+                )
+            } else {
+                LazyColumn {
+                    items(filteredArtists) { artist ->
+                        KpopArtistCard(artist)
                     }
                 }
             }
         }
-    )
-}
-
-@Composable
-fun KpopArtistItem(artist: KpopArtist) {
-    Column(
-        modifier = Modifier
-            .padding(8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        // Bold stage name
-        Text(
-            "Stage Name: ${artist.stageName}",
-            textAlign = TextAlign.Center,
-            fontWeight = FontWeight.Bold, // Bold text
-            modifier = Modifier.padding(bottom = 4.dp) // Add space after
-        )
-        // Regular styling for other fields
-        Text("Full Name: ${artist.fullName}", textAlign = TextAlign.Center)
-        Text("Korean Name: ${artist.koreanName}", textAlign = TextAlign.Center)
-        Text("Date of Birth: ${artist.dateOfBirth}", textAlign = TextAlign.Center)
-        Text("Country: ${artist.country}", textAlign = TextAlign.Center)
-        Text("Group: ${artist.group}", textAlign = TextAlign.Center)
-        Text("Gender: ${artist.gender}", textAlign = TextAlign.Center)
-        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
     }
 }
 
+@SuppressLint("NewApi")
+@Composable
+fun KpopArtistCard(artist: KpopArtist) {
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        elevation = CardDefaults.cardElevation(6.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("🎤 ${artist.stageName}", fontWeight = FontWeight.Bold)
+            Text("Full Name: ${artist.fullName}")
+            Text("Korean Name: ${artist.koreanName}")
+            Text("DOB: ${artist.dateOfBirth} (${getAge(artist.dateOfBirth)} yrs)")
+            Text("🌍 ${artist.country}")
+            Text("Group: ${artist.group}")
+            Text("Gender: ${if (artist.gender == "F") "👩‍🎤 Female" else "👨‍🎤 Male"}")
+        }
+    }
+}
+
+@Composable
+fun DropdownMenuBox(options: List<String>, selected: String, onSelected: (String) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Box {
+        OutlinedButton(onClick = { expanded = true }) {
+            Text(selected)
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option) },
+                    onClick = {
+                        onSelected(option)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
 
 fun readCsvFile(context: Context): List<KpopArtist> {
     val assetManager = context.assets
@@ -145,18 +239,19 @@ fun readCsvFile(context: Context): List<KpopArtist> {
     reader.readLine()  // Skip header
 
     reader.forEachLine { line ->
-        val data = line.split(",").filter { it.isNotBlank() }  // Ignore empty columns
-        if (data.size >= 7) {  // Still ensure at least 7 fields
+        val data = line.split(",").map { it.trim() }  // Remove extra spaces
+        if (data.size >= 7) {
+            val group = data[5].ifBlank { "Solo" }
+
             val artist = KpopArtist(
                 stageName = data[0],
                 fullName = data[1],
                 koreanName = data[2],
                 dateOfBirth = data[3],
                 country = data[4],
-                group = data[5],
+                group = group,
                 gender = data[6]
             )
-            println("Loaded artist: $artist")
             artists.add(artist)
         } else {
             println("Invalid row: $line")
@@ -164,4 +259,21 @@ fun readCsvFile(context: Context): List<KpopArtist> {
     }
 
     return artists
+}
+
+
+// Utility functions
+@SuppressLint("NewApi")
+fun parseDate(date: String): LocalDate {
+    return try {
+        LocalDate.parse(date, DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.getDefault()))
+    } catch (e: Exception) {
+        LocalDate.of(2000, 1, 1)
+    }
+}
+
+@RequiresApi(Build.VERSION_CODES.O)
+fun getAge(dob: String): Long {
+    val birthDate = parseDate(dob)
+    return ChronoUnit.YEARS.between(birthDate, LocalDate.now())
 }
