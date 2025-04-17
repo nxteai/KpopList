@@ -55,6 +55,10 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.Locale
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateIntAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.graphicsLayer
 
 data class KpopArtist(
     val stageName: String,
@@ -121,7 +125,7 @@ fun KpopApp() {
             .padding(padding)
             .padding(16.dp)) {
 
-            // Search
+            // Search field
             TextField(
                 value = searchQuery.value,
                 onValueChange = { searchQuery.value = it },
@@ -129,7 +133,7 @@ fun KpopApp() {
                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
             )
 
-            // Sort
+            // Sort options dropdown
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -145,34 +149,24 @@ fun KpopApp() {
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Group filter tabs
+            // Group filter tabs using AnimatedTabRow
             val selectedTabIndex = when {
                 groupFilter.value.isEmpty() -> 0 // "All" tab is selected
                 else -> groups.indexOf(groupFilter.value) + 1 // Group tab is selected, +1 to account for "All" tab
             }
 
-            ScrollableTabRow(
+            // Updated onTabClick to properly pass the selected group name
+            AnimatedTabRow(
                 selectedTabIndex = selectedTabIndex,
-                edgePadding = 0.dp
-            ) {
-                // "All" tab for no group filter
-                Tab(
-                    selected = groupFilter.value.isEmpty(),
-                    onClick = { groupFilter.value = "" },
-                    text = { Text("All") }
-                )
-                // Tabs for each group
-                groups.forEach { group ->
-                    Tab(
-                        selected = groupFilter.value == group,
-                        onClick = { groupFilter.value = group },
-                        text = { Text(group) }
-                    )
+                groups = groups,
+                onTabClick = { selectedGroup ->
+                    groupFilter.value = selectedGroup
                 }
-            }
+            )
 
             Spacer(modifier = Modifier.height(12.dp))
 
+            // Display filtered results
             if (filteredArtists.isEmpty()) {
                 Text(
                     "No results found",
@@ -189,9 +183,6 @@ fun KpopApp() {
         }
     }
 }
-
-
-
 
 
 
@@ -288,4 +279,61 @@ fun parseDate(date: String): LocalDate {
 fun getAge(dob: String): Long {
     val birthDate = parseDate(dob)
     return ChronoUnit.YEARS.between(birthDate, LocalDate.now())
+}
+
+@Composable
+fun AnimatedTabRow(
+    selectedTabIndex: Int,
+    groups: List<String>,
+    onTabClick: (String) -> Unit
+) {
+    val animatedSelectedIndex by animateIntAsState(
+        targetValue = selectedTabIndex,
+        animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing), label = ""
+    )
+
+    // Create the TabRow and apply the animated selected index
+    ScrollableTabRow(
+        selectedTabIndex = animatedSelectedIndex,
+        edgePadding = 0.dp,
+        indicator = { _ ->
+            // Optionally customize the indicator, e.g., underline effect
+        }
+    ) {
+        // "All" tab for no group filter
+        Tab(
+            selected = selectedTabIndex == 0,
+            onClick = { onTabClick("") },
+            modifier = Modifier
+                .graphicsLayer(
+                    scaleX = if (selectedTabIndex == 0) 1.1f else 1f,
+                    scaleY = if (selectedTabIndex == 0) 1.1f else 1f
+                ),
+            text = {
+                Text(
+                    "All",
+                    color = if (selectedTabIndex == 0) MaterialTheme.colorScheme.primary else Color.Gray
+                )
+            }
+        )
+
+        // Tabs for each group
+        groups.forEachIndexed { index, group ->
+            Tab(
+                selected = selectedTabIndex == index + 1,  // +1 to account for the "All" tab
+                onClick = { onTabClick(group) },
+                modifier = Modifier
+                    .graphicsLayer(
+                        scaleX = if (selectedTabIndex == index + 1) 1.1f else 1f,
+                        scaleY = if (selectedTabIndex == index + 1) 1.1f else 1f
+                    ),
+                text = {
+                    Text(
+                        group,
+                        color = if (selectedTabIndex == index + 1) MaterialTheme.colorScheme.primary else Color.Gray
+                    )
+                }
+            )
+        }
+    }
 }
